@@ -84,13 +84,25 @@ def _serialize_result(model_kind, result):
     elif model_kind == "hands":
         hands = []
         if result.hand_landmarks:
-            for hand in result.hand_landmarks:
-                hl = []
+            for i, hand in enumerate(result.hand_landmarks):
+                # 讀取 Left / Right
+                handed = None
+                if result.handedness:
+                    handed = result.handedness[i][0].category_name  # "Left" 或 "Right"
+                    score = result.handedness[i][0].score  # 信心度（可選）
+                else:
+                    handed = "Unknown"
+                    score = 0.0
+                # Landmark 座標
+                lm_list = []
                 for lm in hand:
-                    hl.append([lm.x, lm.y, lm.z])
-                hands.append(hl)
+                    lm_list.append([lm.x, lm.y, lm.z])
+                hands.append({
+                    "type": handed,
+                    "score": score,
+                    "landmarks": lm_list
+                })
         return {"hand_landmarks": hands}
-
     else:
         return {}
 
@@ -254,7 +266,7 @@ class MDP_MUL_PROCE:
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
     mdpp = MDP_MUL_PROCE()
-    mdpp.pose_init()
+    mdpp.hands_init()
     mdpp.start_worker()
 
     cap = cv2.VideoCapture(0)
@@ -271,8 +283,10 @@ if __name__ == "__main__":
             if idx is not None:
                 # res = mdpp.get_result(idx)
                 length = mdpp.get_processed_frame_nums()
+                if length > 0:
+                    print(mdpp.get_result(length-1))
                 # 這裡你可以加一些 debug print 看結果格式
-                print(idx, length)
+                # print(idx, length)
 
             # ESC 離開
             if cv2.waitKey(1) & 0xFF == 27:
